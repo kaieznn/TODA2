@@ -21,3 +21,4 @@ class TODAApplication : Application() {
         FirebaseDatabase.getInstance().setPersistenceCacheSizeBytes(10 * 1024 * 1024)
     }
 }
+
