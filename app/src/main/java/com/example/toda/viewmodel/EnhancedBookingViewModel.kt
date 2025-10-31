@@ -25,6 +25,9 @@ class EnhancedBookingViewModel @Inject constructor(
     private val _activeBookings = MutableStateFlow<List<Booking>>(emptyList())
     val activeBookings = _activeBookings.asStateFlow()
 
+    private val _queueList = MutableStateFlow<List<QueueEntry>>(emptyList())
+    val queueList = _queueList.asStateFlow()
+
     init {
         // Observe available drivers in real-time
         viewModelScope.launch {
@@ -37,6 +40,13 @@ class EnhancedBookingViewModel @Inject constructor(
         viewModelScope.launch {
             repository.getActiveBookings().collect { bookings ->
                 _activeBookings.value = bookings
+            }
+        }
+
+        // Observe driver queue in real-time
+        viewModelScope.launch {
+            repository.observeDriverQueue().collect { queueEntries ->
+                _queueList.value = queueEntries
             }
         }
     }
@@ -131,6 +141,18 @@ class EnhancedBookingViewModel @Inject constructor(
                     _bookingState.value = _bookingState.value.copy(
                         message = "Booking status updated to $status successfully!"
                     )
+
+                    // Create rating entry when trip is completed
+                    if (status == "COMPLETED") {
+                        repository.createRatingEntry(bookingId).fold(
+                            onSuccess = {
+                                println("✓ Rating entry created for booking: $bookingId")
+                            },
+                            onFailure = { error ->
+                                println("✗ Failed to create rating entry: ${error.message}")
+                            }
+                        )
+                    }
                 },
                 onFailure = { error ->
                     _bookingState.value = _bookingState.value.copy(
@@ -139,6 +161,16 @@ class EnhancedBookingViewModel @Inject constructor(
                 }
             )
         }
+    }
+
+    // Mark driver as arrived at pickup point
+    suspend fun markArrivedAtPickup(bookingId: String): Result<Unit> {
+        return repository.markArrivedAtPickup(bookingId)
+    }
+
+    // Report customer no-show
+    suspend fun reportNoShow(bookingId: String): Result<Unit> {
+        return repository.reportNoShow(bookingId)
     }
 
     fun updateDriverLocation(
@@ -231,8 +263,34 @@ class EnhancedBookingViewModel @Inject constructor(
         return repository.getDriverContributionStatus(driverId)
     }
 
+    suspend fun isDriverInQueue(driverRFID: String): Result<Boolean> {
+        return repository.isDriverInQueue(driverRFID)
+    }
+
+    fun observeDriverQueueStatus(driverRFID: String): Flow<Boolean> {
+        return repository.observeDriverQueueStatus(driverRFID)
+    }
+
+    suspend fun leaveQueue(driverRFID: String): Result<Boolean> {
+        return repository.leaveQueue(driverRFID)
+    }
+
     suspend fun getDriverTodayStats(driverId: String): Result<Triple<Int, Double, Double>> {
         return repository.getDriverTodayStats(driverId)
+    }
+
+    // RFID Management functions
+    suspend fun reportMissingRfid(driverId: String, reason: String): Result<Unit> {
+        return repository.reportMissingRfid(driverId, reason)
+    }
+
+    suspend fun getRfidChangeHistory(driverId: String): Result<List<RfidChangeHistory>> {
+        return repository.getRfidChangeHistory(driverId)
+    }
+
+    // Rating submission function
+    suspend fun submitRating(bookingId: String, stars: Int, feedback: String): Result<Unit> {
+        return repository.updateRating(bookingId, stars, feedback)
     }
 
     // Enhanced Chat methods
@@ -256,6 +314,11 @@ class EnhancedBookingViewModel @Inject constructor(
 
     fun getUserChatRooms(userId: String): Flow<List<ChatRoom>> {
         return repository.getUserChatRooms(userId)
+    }
+
+    // Add method to fetch user profile data including discount information
+    fun getUserProfile(userId: String): Flow<UserProfile?> {
+        return repository.getUserProfile(userId)
     }
 
     suspend fun createOrGetChatRoom(
@@ -315,6 +378,47 @@ class EnhancedBookingViewModel @Inject constructor(
             } catch (e: Exception) {
                 println("Error creating chat room: ${e.message}")
             }
+        }
+    }
+
+    // Driver Contributions Management
+    suspend fun getDriverContributions(driverId: String): Result<List<FirebaseContribution>> {
+        return try {
+            val contributions = repository.getDriverContributions(driverId)
+            Result.success(contributions)
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
+    suspend fun getDriverTodayContributions(driverId: String): Result<List<FirebaseContribution>> {
+        return try {
+            val contributions = repository.getDriverTodayContributions(driverId)
+            Result.success(contributions)
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
+    // Get driver contribution summary with all statistics
+    suspend fun getDriverContributionSummary(driverId: String): Result<ContributionSummary> {
+        return try {
+            val summary = repository.getDriverContributionSummary(driverId)
+            Result.success(summary)
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
+    // Stop polling for a specific booking (called when manually cancelling or timeout)
+    fun stopBookingPolling(bookingId: String) {
+        // This is a placeholder method that can be used to stop any active polling
+        // for a specific booking. Currently, we rely on Flow collectors being cancelled
+        // when the composable is disposed, but this provides an explicit way to stop
+        // polling if needed in the future.
+        viewModelScope.launch {
+            println("Stopping polling for booking: $bookingId")
+            // Any cleanup logic can be added here if needed
         }
     }
 }

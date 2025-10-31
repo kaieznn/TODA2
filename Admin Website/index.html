@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Barebones Firebase Site</title>
+</head>
+<body>
+  <h1>Firebase Barebones Site</h1>
+  <p>If you see no errors, Firebase is connected!</p>
+
+  <pre id="output"></pre>
+
+  <script type="module">
+    // Import Firebase SDKs directly from the CDN
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/11.0.0/firebase-app.js";
+    import { getDatabase, ref, get, child } from "https://www.gstatic.com/firebasejs/11.0.0/firebase-database.js";
+
+    // Your Firebase config
+    const firebaseConfig = {
+      apiKey: "AIzaSyA9ADVig4CiO2Y3ELl3unzXajdzxCgRxHI",
+      authDomain: "toda-contribution-system.firebaseapp.com",
+      databaseURL: "https://toda-contribution-system-default-rtdb.asia-southeast1.firebasedatabase.app",
+      projectId: "toda-contribution-system",
+      storageBucket: "toda-contribution-system.firebasestorage.app",
+      messagingSenderId: "536068566619",
+      appId: "1:536068566619:web:ff7cc576e59b76ae58997e"
+    };
+
+    // Initialize Firebase
+    const app = initializeApp(firebaseConfig);
+    const db = getDatabase(app);
+    console.log("Firebase initialized:", app);
+
+    // Fetch data from the Realtime Database
+    async function fetchData() {
+      try {
+        const dbRef = ref(db);
+        const snapshot = await get(child(dbRef, "activeTrips"));
+        if (snapshot.exists()) {
+          console.log(snapshot.val());
+          document.getElementById("output").textContent = JSON.stringify(snapshot.val(), null, 2);
+        } else {
+          console.log("No data available");
+          document.getElementById("output").textContent = "No data available";
+        }
+      } catch (error) {
+        console.error("Error fetching data:", error);
+        document.getElementById("output").textContent = "Error fetching data: " + error;
+      }
+    }
+
+    fetchData();
+  </script>
+</body>
+</html>
